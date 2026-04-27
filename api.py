@@ -4,8 +4,9 @@ from keras.models import load_model
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# [CORE JEMBATAN API: Inisialisasi]
 app = Flask(__name__)
-# Enable CORS so the Vite React app can call this API
+# [CORE JEMBATAN API: CORS] Membuka akses agar React (Frontend) diizinkan mengambil data dari server ini
 CORS(app)
 
 # Load the Model
@@ -26,11 +27,13 @@ CLASS_NAMES = [
     'Tomato-mosaic_virus'
 ]
 
+# [CORE JEMBATAN API: Endpoint] Menentukan URL /predict yang akan dipanggil oleh React (menggunakan metode POST)
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     
+    # [CORE JEMBATAN API: Penerimaan Menerima Teks] Menangkap gambar fisik yang baru saja di-*upload* pengguna lewat Frontend React
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
@@ -74,6 +77,7 @@ def predict():
         # Sort predictions by confidence
         all_predictions.sort(key=lambda x: x['confidence'], reverse=True)
         
+        # [CORE JEMBATAN API: Pengiriman Kembali] Membungkus hasil akhir Keras/AI ke bahasa JSON agar bisa dibaca dan ditampilkan secara visual oleh React
         return jsonify({
             'success': True,
             'disease_id': predicted_class,
