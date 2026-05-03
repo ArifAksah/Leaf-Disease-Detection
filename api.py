@@ -14,6 +14,15 @@ CORS(app)
 # It's better to load the model once when the server starts
 model = keras.models.load_model('CNNModel.h5', compile=False)
 
+@app.route('/')
+def health_check():
+    return jsonify({
+        'status': 'ok',
+        'message': 'Leaf Disease Detection API is running',
+        'endpoint': '/predict',
+        'method': 'POST'
+    })
+
 # Name of Classes
 CLASS_NAMES = [
     'Tomato-Early_Bright',
