@@ -24,5 +24,5 @@ COPY CNNModel.h5 .
 ENV PORT=7860
 EXPOSE 7860
 
-# Use gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "1", "--timeout", "120", "api:app"]
+# Use uvicorn for FastAPI
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "7860"]

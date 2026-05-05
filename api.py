@@ -2,34 +2,42 @@ import os
 import numpy as np
 import cv2
 from tensorflow import keras
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import datetime
+import uvicorn
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
-# [CORE JEMBATAN API: Inisialisasi]
-app = Flask(__name__)
+# [CORE JEMBATAN API: Inisialisasi FastAPI]
+app = FastAPI(title="Leaf Disease Detection API")
+
 # [CORE JEMBATAN API: CORS] Membuka akses agar React (Frontend) diizinkan mengambil data dari server ini
-CORS(app)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load the Model
-# It's better to load the model once when the server starts
 model = keras.models.load_model('CNNModel.h5', compile=False)
 
-@app.route('/')
+@app.get('/')
 def health_check():
-    return jsonify({
+    return {
         'status': 'ok',
         'message': 'Leaf Disease Detection API is running',
         'endpoint': '/predict',
         'method': 'POST'
-    })
+    }
 
 # Name of Classes
 CLASS_NAMES = [
@@ -45,24 +53,23 @@ CLASS_NAMES = [
     'Tomato-mosaic_virus'
 ]
 
-# [CORE JEMBATAN API: Endpoint] Menentukan URL /predict yang akan dipanggil oleh React (menggunakan metode POST)
-@app.route('/predict', methods=['POST'])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
+# [CORE JEMBATAN API: Endpoint] URL /predict yang akan dipanggil oleh React
+@app.post('/predict')
+async def predict(file: UploadFile = File(...)):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
     
-    # [CORE JEMBATAN API: Penerimaan Menerima Teks] Menangkap gambar fisik yang baru saja di-*upload* pengguna lewat Frontend React
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file selected")
     
     try:
-        # Convert the file to an opencv image.
-        file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
+        # Read file asynchronously
+        contents = await file.read()
+        file_bytes = np.asarray(bytearray(contents), dtype=np.uint8)
         opencv_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         if opencv_image is None:
-            return jsonify({'error': 'Invalid image file. Please upload a valid JPG/PNG image.'}), 400
+            raise HTTPException(status_code=400, detail="Invalid image file. Please upload a valid JPG/PNG image.")
 
         # Resizing the image
         opencv_image = cv2.resize(opencv_image, (224, 224))
@@ -106,17 +113,17 @@ def predict():
             except Exception as supabase_error:
                 print(f"Supabase error: {supabase_error}")
         
-        # [CORE JEMBATAN API: Pengiriman Kembali] Membungkus hasil akhir Keras/AI ke bahasa JSON agar bisa dibaca dan ditampilkan secara visual oleh React
-        return jsonify({
+        # [CORE JEMBATAN API: Pengiriman Kembali] Membungkus hasil akhir Keras/AI ke JSON
+        return {
             'success': True,
             'disease_id': predicted_class,
             'confidence': confidence,
             'all_predictions': all_predictions
-        })
+        }
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return JSONResponse(status_code=500, content={'error': str(e)})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT', 7860))
+    uvicorn.run("api:app", host='0.0.0.0', port=port)
