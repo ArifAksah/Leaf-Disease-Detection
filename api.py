@@ -4,6 +4,14 @@ import cv2
 from tensorflow import keras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from dotenv import load_dotenv
+from supabase import create_client, Client
+import datetime
+
+load_dotenv()
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 # [CORE JEMBATAN API: Inisialisasi]
 app = Flask(__name__)
@@ -86,6 +94,17 @@ def predict():
             
         # Sort predictions by confidence
         all_predictions.sort(key=lambda x: x['confidence'], reverse=True)
+        
+        # Save to Supabase
+        if supabase:
+            try:
+                supabase.table("predictions").insert({
+                    "disease_id": predicted_class,
+                    "confidence": confidence,
+                    "created_at": datetime.datetime.utcnow().isoformat()
+                }).execute()
+            except Exception as supabase_error:
+                print(f"Supabase error: {supabase_error}")
         
         # [CORE JEMBATAN API: Pengiriman Kembali] Membungkus hasil akhir Keras/AI ke bahasa JSON agar bisa dibaca dan ditampilkan secara visual oleh React
         return jsonify({
