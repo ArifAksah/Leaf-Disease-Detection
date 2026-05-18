@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import datetime
 import uvicorn
+import uuid
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -104,14 +105,39 @@ async def predict(file: UploadFile = File(...)):
         
         # Save to Supabase
         if supabase:
+            image_url = None
+            unique_filename = None
+            
+            try:
+                # 1. Generate unique filename
+                file_extension = file.filename.split(".")[-1]
+                unique_filename = f"{uuid.uuid4()}.{file_extension}"
+                
+                # 2. Upload to Storage (menggunakan bucket leaf_images)
+                supabase.storage.from_("leaf_images").upload(
+                    file=contents,
+                    path=unique_filename,
+                    file_options={"content-type": file.content_type}
+                )
+                
+                # 3. Get Public URL
+                image_url = supabase.storage.from_("leaf_images").get_public_url(unique_filename)
+                
+            except Exception as storage_error:
+                print(f"Failed to upload image to Storage: {storage_error}")
+
             try:
                 supabase.table("predictions").insert({
                     "disease_id": predicted_class,
                     "confidence": confidence,
+                    "image_url": image_url,
                     "created_at": datetime.datetime.utcnow().isoformat()
                 }).execute()
-            except Exception as supabase_error:
-                print(f"Supabase error: {supabase_error}")
+            except Exception as db_error:
+                print(f"Failed to insert into Database: {db_error}")
+                # Rollback: Hapus file dari storage jika gagal insert ke DB
+                if unique_filename:
+                    supabase.storage.from_("leaf_images").remove([unique_filename])
         
         # [CORE JEMBATAN API: Pengiriman Kembali] Membungkus hasil akhir Keras/AI ke JSON
         return {
