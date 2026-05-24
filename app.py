@@ -2,11 +2,10 @@
 import numpy as np
 import streamlit as st
 import cv2
-from keras.models import load_model
-import tensorflow as tf
+from tensorflow import keras
 
 #Loading the Model
-model = load_model('CNNModel.h5')
+model = keras.models.load_model('CNNModel.keras')
 
 #Name of Classes
 CLASS_NAMES = ['Tomato-Early_Bright','Tomato-Healthy','Tomato-Late_bright',

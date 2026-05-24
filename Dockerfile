@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and model
 COPY api.py .
-COPY CNNModel.h5 .
+COPY CNNModel.keras .
 
 # Hugging Face Spaces uses port 7860
 ENV PORT=7860

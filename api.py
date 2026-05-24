@@ -29,7 +29,7 @@ app.add_middleware(
 )
 
 # Load the Model
-model = keras.models.load_model('CNNModel.h5', compile=False)
+model = keras.models.load_model('CNNModel.keras')
 
 @app.get('/')
 def health_check():
